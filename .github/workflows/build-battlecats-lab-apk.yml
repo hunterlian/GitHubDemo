@@ -1,0 +1,49 @@
+name: Build BattleCats Lab Android APK
+on:
+  push:
+    branches: [battlecats-lab-android-apk-build]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack Android v0.2 source
+        run: mkdir project && unzip -q BattleCatsLab_Android_v0.2_source.zip -d project
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Ensure Android SDK 35
+        shell: bash
+        run: |
+          echo "Android SDK: $ANDROID_HOME"
+          if [ ! -d "$ANDROID_HOME/platforms/android-35" ] || [ ! -d "$ANDROID_HOME/build-tools/35.0.0" ]; then
+            SDKMAN="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+            "$SDKMAN" --install 'platforms;android-35' 'build-tools;35.0.0'
+          fi
+      - name: Install Python test requirements
+        run: python -m pip install --disable-pip-version-check pytest PyJWT PyYAML requests
+      - name: Run Python vault tests
+        shell: bash
+        run: PYTHONPATH=project/app/src/main/python python -m pytest -q project/tests/test_vault.py
+      - name: Build debug APK
+        run: gradle --no-daemon -p project :app:assembleDebug --stacktrace
+      - name: Upload debug APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BattleCatsLab-Android-v0.2-APK
+          path: project/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
