@@ -13,8 +13,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Unpack standalone Android source
-        run: mkdir project && unzip -q bc_android_source_ci.zip -d project
+      - name: Unpack Android v0.2 source
+        run: mkdir project && unzip -q BattleCatsLab_Android_v0.2_source.zip -d project
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -28,18 +28,20 @@ jobs:
       - name: Ensure Android SDK 35
         shell: bash
         run: |
-          echo "SDK: $ANDROID_HOME"
-          ls -la "$ANDROID_HOME/platforms" || true
+          echo "Android SDK: $ANDROID_HOME"
           if [ ! -d "$ANDROID_HOME/platforms/android-35" ] || [ ! -d "$ANDROID_HOME/build-tools/35.0.0" ]; then
             SDKMAN="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
             "$SDKMAN" --install 'platforms;android-35' 'build-tools;35.0.0'
           fi
-      - name: Build APK
+      - name: Run Python vault tests
+        shell: bash
+        run: PYTHONPATH=project/app/src/main/python python -m pytest -q project/tests/test_vault.py
+      - name: Build debug APK
         run: gradle --no-daemon -p project :app:assembleDebug --stacktrace
-      - name: Upload APK
+      - name: Upload debug APK
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: BattleCatsLab-Android-APK
+          name: BattleCatsLab-Android-v0.2-APK
           path: project/app/build/outputs/apk/debug/*.apk
           if-no-files-found: warn
